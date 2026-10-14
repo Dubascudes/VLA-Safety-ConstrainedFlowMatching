@@ -1,0 +1,38 @@
+{
+  "openpi": {
+    "url": "https://github.com/Physical-Intelligence/openpi.git",
+    "revision": "981483dca0fd9acba698fea00aa6e52d56a66c58"
+  },
+  "safelibero": {
+    "url": "https://github.com/THU-RCSCT/vlsa-aegis.git",
+    "revision": "9a85f173becac69b21d050ea1b4edf66c93100b9",
+    "modified_files": [
+      "README.md",
+      "libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_handle.xml",
+      "libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_small_obstacle.xml",
+      "libero/libero/benchmark/__init__.py",
+      "libero/libero/envs/objects/obstacle_objects.py",
+      "libero/libero/envs/regions/base_region_sampler.py",
+      "libero/libero/envs/utils.py"
+    ],
+    "compared_files": 981
+  },
+  "source_sha256": {
+    "openpi/scripts/serve_policy.py": "cb09d10a768156fb7641b4fcf2038f40aef2a7424e5058ee0fe0cb7cc9c3c379",
+    "openpi/src/openpi/models_pytorch/pi0_pytorch.py": "e6bd4ed4e95fb0e93fdf7c995210f0c476c4e04faea3b45039e5226acf93009d",
+    "openpi/src/openpi/policies/policy.py": "af74fb610c4dcc9dcf4a712bde15a07018ce26fdc704dc8486bd60438b1700d9",
+    "openpi/src/openpi/serving/websocket_policy_server.py": "91193ebd7f035b8a9297b09681ceb2741cc15ecdd97e73063b43657b67a205ba",
+    "openpi/packages/openpi-client/src/openpi_client/websocket_client_policy.py": "a498998c28af5294e91f4ec3a903222967031d9f430d971b2ff2dc02c1b74543",
+    "openpi/examples/safelibero/eval_safelibero_visualized.py": "402bb8ec6885b63adea96bd6da7ce8105653a0ffaa19541723c118ef09cdb3f6",
+    "openpi/examples/safelibero/proprioception.py": "64885c9fc85386389069ad78d085fee4fbdcc7380f4cdac5c68752ea28288df9",
+    "openpi/examples/safelibero/requirements.in": "c663401736ee0fd80aa4e9a36415969c25db6e40283c370fb15544138c49452a",
+    "openpi/examples/safelibero/requirements.txt": "821008c9804ec835bccee66ab93c177f47a62a845c010497b5aea06829331727",
+    "safelibero/safelibero/README.md": "e135f01937e390c23e8989cb67b2f63142bb3d19f308a625ac89b5b41a8c4f19",
+    "safelibero/safelibero/libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_handle.xml": "50c36a28da841e4528162e1efa8bb7b543b2366923a0c636f0c2d467677f08be",
+    "safelibero/safelibero/libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_small_obstacle.xml": "21f4ae1e78952a61c436e01326b95c1c92699c4a3d4a1d66be9ac68248f21af1",
+    "safelibero/safelibero/libero/libero/benchmark/__init__.py": "3e7e10eb2fa5f2c4a014285ab9e9b5481519e0d381c34a5990f402c601b4d00e",
+    "safelibero/safelibero/libero/libero/envs/objects/obstacle_objects.py": "489d1a83fe1592f092862e41b893d4c0be9cb34cee9758722699ecb3438f210b",
+    "safelibero/safelibero/libero/libero/envs/regions/base_region_sampler.py": "0cd18aa5980fb8b1bb53d422b7c81b71074b4eae6e70613bff2c7467ae8d8985",
+    "safelibero/safelibero/libero/libero/envs/utils.py": "f3d74f43ad957e6ac958f629b2c80fc802a9fa10d23e4844a3820090783cedcd"
+  }
+}

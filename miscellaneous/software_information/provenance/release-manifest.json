@@ -1,0 +1,40 @@
+{
+  "openpi": {
+    "url": "https://github.com/Physical-Intelligence/openpi.git",
+    "revision": "981483dca0fd9acba698fea00aa6e52d56a66c58"
+  },
+  "safelibero": {
+    "url": "https://github.com/THU-RCSCT/vlsa-aegis.git",
+    "revision": "9a85f173becac69b21d050ea1b4edf66c93100b9",
+    "modified_files": [
+      "README.md",
+      "libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_handle.xml",
+      "libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_small_obstacle.xml",
+      "libero/libero/benchmark/__init__.py",
+      "libero/libero/envs/objects/obstacle_objects.py",
+      "libero/libero/envs/regions/base_region_sampler.py",
+      "libero/libero/envs/utils.py"
+    ],
+    "compared_files": 981
+  },
+  "source_sha256": {
+    "openpi/scripts/serve_policy.py": "84aab08e8eae3ee80d444d7c4aad51475acb2b266303de9c28e96b25ea5689aa",
+    "openpi/src/openpi/models_pytorch/pi0_pytorch.py": "941b2109cc7f4848d3e6d14baf4b50390a68a84df17993f7c55a0fda4c6b720c",
+    "openpi/src/openpi/policies/policy.py": "5d49809a84c3aab7cc1bab524d14f2ae48392da4c05b993cee4b15734c61b81a",
+    "openpi/src/openpi/serving/websocket_policy_server.py": "91193ebd7f035b8a9297b09681ceb2741cc15ecdd97e73063b43657b67a205ba",
+    "openpi/packages/openpi-client/src/openpi_client/websocket_client_policy.py": "a498998c28af5294e91f4ec3a903222967031d9f430d971b2ff2dc02c1b74543",
+    "openpi/examples/safelibero/eval_safelibero_visualized.py": "76f14e17934300425252d18087d6c2ec16d97fa8e7041ce49d91adc04bf7669f",
+    "openpi/examples/safelibero/proprioception.py": "64885c9fc85386389069ad78d085fee4fbdcc7380f4cdac5c68752ea28288df9",
+    "openpi/examples/safelibero/requirements.in": "c663401736ee0fd80aa4e9a36415969c25db6e40283c370fb15544138c49452a",
+    "openpi/examples/safelibero/requirements.txt": "821008c9804ec835bccee66ab93c177f47a62a845c010497b5aea06829331727",
+    "safelibero/safelibero/README.md": "e135f01937e390c23e8989cb67b2f63142bb3d19f308a625ac89b5b41a8c4f19",
+    "safelibero/safelibero/libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_handle.xml": "50c36a28da841e4528162e1efa8bb7b543b2366923a0c636f0c2d467677f08be",
+    "safelibero/safelibero/libero/libero/assets/obstacle_objects/moka_pot_small_obstacle/moka_pot_small_obstacle.xml": "21f4ae1e78952a61c436e01326b95c1c92699c4a3d4a1d66be9ac68248f21af1",
+    "safelibero/safelibero/libero/libero/benchmark/__init__.py": "3e7e10eb2fa5f2c4a014285ab9e9b5481519e0d381c34a5990f402c601b4d00e",
+    "safelibero/safelibero/libero/libero/envs/objects/obstacle_objects.py": "489d1a83fe1592f092862e41b893d4c0be9cb34cee9758722699ecb3438f210b",
+    "safelibero/safelibero/libero/libero/envs/regions/base_region_sampler.py": "0cd18aa5980fb8b1bb53d422b7c81b71074b4eae6e70613bff2c7467ae8d8985",
+    "safelibero/safelibero/libero/libero/envs/utils.py": "f3d74f43ad957e6ac958f629b2c80fc802a9fa10d23e4844a3820090783cedcd"
+  },
+  "baseline_commit": "2bb053e",
+  "description": "Release with request-local viewer controls, opt-in current-call traces, and neutral correction multiplier defaults."
+}

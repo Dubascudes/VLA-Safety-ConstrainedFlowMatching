@@ -1,0 +1,11 @@
+Licensing status
+
+A license for this project's original contributions has not yet been selected.
+This file does not grant a new license to those contributions.
+
+Third-party components retain their existing licenses. Copies of their notices
+are in miscellaneous/software_information/licenses/ and in reconstructed upstream
+repositories. The reproducible_research organization template is CC0; this does
+not place the VLA implementation or its dependencies in the public domain.
+
+Resolve original-contribution licensing before publication.
