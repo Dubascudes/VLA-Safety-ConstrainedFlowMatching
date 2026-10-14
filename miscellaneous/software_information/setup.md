@@ -16,4 +16,4 @@ Install the reconstructed `packages/openpi-client` and `third_party/safelibero` 
 
 Live display requires a graphical session and OpenCV GUI support. Headless rendering and live display are separate concerns. On HiPerGator, model loading, installation/build work, and rollouts belong in scheduled compute allocations, not login nodes.
 
-Before running on a new machine, resolve the hard-coded trace output path listed in `known-issues.md`. GPU inference and viewer operation have not been verified by the packaging tests.
+Trace output is disabled by default; use the server option `--trace-dir` to enable current-call trace saving. The CPU regression suite runs in an existing OpenPI environment, but a fresh dependency installation, GPU inference, and live viewer operation remain unverified.

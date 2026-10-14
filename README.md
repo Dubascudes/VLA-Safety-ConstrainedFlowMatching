@@ -1,104 +1,108 @@
 # Safety-Constrained Flow Matching for VLAs
 
-Reference code for **Neuro-Symbolic Safety Guidance for Vision-Language-Action Models via Constrained Flow Matching**, William English, Hao Zheng, and Rickard Ewetz.
+Code for [Neuro-Symbolic Safety Guidance for Vision-Language-Action Models via Constrained Flow Matching](https://arxiv.org/abs/2607.01378), by William English, Hao Zheng, and Rickard Ewetz.
 
-- [Paper](https://arxiv.org/abs/2607.01378)
-- [Project page](https://willenglish.tech/SafetyGuidedFlowMatching/)
-- Base policy: OpenPI `pi05_libero` (PyTorch checkpoint).
-- Environment: SafeLIBERO from VLSA-AEGIS, with captured local modifications.
+We add trajectory-level safety guidance to OpenPI’s π0.5 policy and evaluate it in SafeLIBERO. The live viewer lets you run manipulation tasks, compare safety configurations, and save videos of the resulting behavior.
 
-## Status
+[Paper](https://arxiv.org/abs/2607.01378) · [Project page](https://willenglish.tech/SafetyGuidedFlowMatching/)
 
-**Initial source extraction, not yet a validated end-to-end release.** Source reconstruction and syntax checks are verified. Fresh dependency installation, GPU inference, live GUI operation, and reproduction of paper results are not yet verified. See [known issues](docs/known-issues.md).
+## What’s included
 
-The live viewer is a first-class release component. This extraction preserves its current behavior; repairs will be tested separately.
+- **Safety-guided OpenPI:** corrections to predicted action trajectories during flow-matching inference.
+- **SafeLIBERO integration:** environment changes and obstacle geometry used by the safety code.
+- **Live experiment viewer:** task selection, safety controls, trajectory visualization, and video recording.
+- **Tests and experiment notes:** regression tests, dependency information, and a template for recording runs.
 
-## Contents
+The viewer source lives in `experiments/processing/safelibero/`. Reusable code and patches live in `software_module/`. You can find environment details and experiment procedures in `miscellaneous/`.
 
-- `patches/openpi.patch`: model, policy, server, and client modifications.
-- `patches/safelibero.patch`: environment and obstacle-geometry modifications.
-- `overlay/examples/safelibero/`: live viewer, geometry helper, dependency snapshots.
-- `provenance/source-manifest.json`: upstream revisions and captured SHA-256 hashes.
-- `tools/materialize.py`: reconstruct upstream sources plus patches and overlay.
-- `licenses/`: preserved third-party notices.
-- `docs/`: setup, provenance, limitations, and implementation plan.
-- `tests/`: materialization tests.
+## Setup
 
-Weights, videos, datasets, virtual environments, and unrelated experiments are not included.
+You’ll need Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), an NVIDIA GPU for the policy, and a graphical session for the live viewer. Use separate Python environments for OpenPI and SafeLIBERO because they require different dependency versions.
 
-## Reconstruct source
+### 1. Prepare OpenPI and SafeLIBERO
 
-Requires Git and Python 3.10+ for the materializer. OpenPI requires Python 3.11+; the captured simulator requirements use a separate older environment.
+From this repository’s root directory, run:
 
 ```bash
-python tools/materialize.py
+python experiments/processing/materialize.py
 ```
 
-This clones pinned upstream revisions into `runtime/`, applies patches, copies the viewer, links SafeLIBERO, and checks captured source hashes. Existing destinations are refused. It downloads upstream simulator assets, but does not install dependencies or download model weights.
+This downloads the pinned upstream code, applies our changes, and places the working code in `runtime/`. Model weights are downloaded separately when you first load the policy. If `runtime/` already exists, move it aside or choose another location with `--dest`.
 
-Offline reconstruction using existing upstream repositories:
+### 2. Set up the policy environment
 
 ```bash
-python tools/materialize.py --dest runtime \
-  --openpi-source /path/to/openpi \
-  --safelibero-source /path/to/vlsa-aegis
+cd runtime/openpi
+GIT_LFS_SKIP_SMUDGE=1 uv sync --python 3.11 --link-mode copy
+GIT_LFS_SKIP_SMUDGE=1 uv pip install --python .venv/bin/python --link-mode copy -e . scipy
 ```
 
-Only committed content is taken from mirrors; the release patches supply the research changes.
-
-## Live viewer
-
-Read [setup notes](docs/setup.md) first. After installing the separate policy and simulator environments, run from `runtime/openpi`.
-
-Policy server, in the policy environment:
+Apply OpenPI’s PyTorch compatibility changes to Transformers:
 
 ```bash
-python scripts/serve_policy.py --env LIBERO --enable-safety --safety-margin 0.01
+cp -r src/openpi/models_pytorch/transformers_replace/* \
+  .venv/lib/python3.11/site-packages/transformers/
 ```
 
-Viewer, in the simulator environment:
+The copy link mode above keeps these edits separate from uv’s shared package cache.
+
+### 3. Set up the simulator environment
+
+Still in `runtime/openpi`, create a separate environment for SafeLIBERO:
 
 ```bash
-python examples/safelibero/eval_safelibero_visualized.py \
+uv venv --python 3.8 examples/safelibero/.venv
+uv pip install --python examples/safelibero/.venv/bin/python \
+  -r examples/safelibero/requirements.txt \
+  -r third_party/safelibero/requirements.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu113 \
+  --index-strategy unsafe-best-match
+uv pip install --python examples/safelibero/.venv/bin/python \
+  -e packages/openpi-client -e third_party/safelibero
+```
+
+These commands follow the captured dependency files and upstream setup instructions; a fresh-machine installation has not yet been validated. See [environment notes](miscellaneous/software_information/setup.md) for details.
+
+## Run the viewer
+
+Start the policy server from `runtime/openpi`:
+
+```bash
+.venv/bin/python scripts/serve_policy.py \
+  --env LIBERO --enable-safety \
+  --safety-margin 0.01 --guidance-scale 1.0
+```
+
+The server uses the `pi05_libero` configuration and the PyTorch π0.5-LIBERO checkpoint. Allow time for the first checkpoint download and model load.
+
+Open a second terminal, change to `runtime/openpi`, and start the viewer:
+
+```bash
+export PYTHONPATH="$PWD/third_party/safelibero${PYTHONPATH:+:$PYTHONPATH}"
+examples/safelibero/.venv/bin/python \
+  examples/safelibero/eval_safelibero_visualized.py \
   --host 127.0.0.1 --port 8000 \
   --task-suite-name safelibero_spatial --safety-level I \
   --task-index 0 --only-episode 0 \
-  --safety-filter flow --safety-margin 0.01 \
+  --safety-filter flow --safety-margin 0.01 --guidance-scale 1.0 \
   --live-display --save-videos \
   --video-out-path data/demo/spatial_I_flow
 ```
 
-These are source-derived entry points, not recovered paper-run commands or fresh-install validated instructions. Set the server margin explicitly: its default is zero, overriding the model's 0.01 m default.
+Use the viewer’s dropdowns to choose tasks and its sliders to adjust the safety margin and correction strength. You can pause, restart, or skip an episode. The command above starts with one episode; remove `--only-episode 0` to run multiple trials.
 
-Modes: `none` sends no safety metadata; `cbf` applies a single-action filter during execution; `flow` requests guidance during generation; `flow+cbf` adds a trajectory filter after flow guidance. Do not label the `cbf` mode a verified reproduction of published AEGIS results without checking baseline provenance.
+Choose a safety mode with `--safety-filter`:
 
-The viewer provides task/suite dropdowns, safety sliders, pause/restart/skip controls, videos, and trajectory overlays. **Flow-mode slider values currently are not applied by the server.** Omit `--live-display` for noninteractive evaluation; a configuration-logged benchmark runner remains future work.
+| Mode | Behavior |
+| --- | --- |
+| `none` | Run the policy without safety filtering. |
+| `cbf` | Filter individual actions before execution. |
+| `flow` | Apply trajectory corrections during generation. |
+| `flow+cbf` | Combine flow guidance with an additional trajectory filter. |
 
-## Tests
+A guidance strength of **1.0** uses the solver’s correction unchanged. Other values scale that correction and may no longer satisfy its safety constraints.
 
-```bash
-python -m unittest discover -s tests -v
-```
-
-Enable the offline reconstruction integration test with:
-
-```bash
-VLA_OPENPI_SOURCE=/path/to/openpi \
-VLA_SAFELIBERO_SOURCE=/path/to/vlsa-aegis \
-python -m unittest discover -s tests -v
-```
-
-Without mirrors, integration testing is explicitly skipped. These checks verify packaging, not robot behavior or safety.
-
-## Provenance and scope
-
-The experiments ran on HiPerGator; the author selected the current local OpenPI implementation for this release after comparison. This is not yet an exact experiment-time snapshot. See [provenance](docs/provenance.md).
-
-The method uses simulator-provided obstacle state and simplified end-effector geometry/dynamics. It does not establish perception-grounded, full-body, or real-world safety guarantees.
-
-## Licensing
-
-Upstream notices are retained in `licenses/` and reconstructed dependencies. A license for original contributions must be selected before publication. The manuscript license does not automatically license the code.
+Videos go to `--video-out-path`. To save denoising traces as well, add `--trace-dir /path/to/traces` to the **server** command. For evaluation without a live window, omit `--live-display` from the viewer command.
 
 ## Citation
 

@@ -3,7 +3,8 @@ runtime/
 __pycache__/
 *.pyc
 .pytest_cache/
-data/
+/data/raw/
+/data/processed/
 outputs/
 *.mp4
 *.npy

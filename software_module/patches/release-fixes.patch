@@ -1,0 +1,279 @@
+--- a/scripts/serve_policy.py
++++ b/scripts/serve_policy.py
+@@ -67,17 +67,29 @@
+     enable_safety: bool = False
+     """Enable safety-guided flow matching"""
+     
+-    safety_margin: float = 0.0
++    safety_margin: float = 0.01
+     """Distance to maintain from obstacles"""
+     
+-    guidance_scale: float = 5.0
++    guidance_scale: float = 1.0
+     """Strength of safety guidance during flow matching"""
+     
+-    min_guidance_time: float = 0.3
++    min_guidance_time: float = 0.0
+     """Don't apply guidance below this flow time (preserves output quality)"""
+     
++    trace_dir: str | None = None
++    """Opt-in directory for current-inference denoising traces; disabled by default."""
++
+     log_safety: bool = False
+     """Log safety guidance activity (for debugging)"""
++
++    def __post_init__(self):
++        import math
++        # Reject invalid defaults before loading any model or opening a server.
++        for field in ('safety_margin', 'guidance_scale'):
++            value = float(getattr(self, field))
++            if not math.isfinite(value) or value < 0:
++                raise ValueError(f'{field} must be finite and nonnegative')
++            setattr(self, field, value)
+ 
+ 
+ DEFAULT_CHECKPOINT: dict[EnvMode, Checkpoint] = {
+@@ -147,8 +159,8 @@
+     # Create safety config
+     safety_config = SafetyConfig(
+         safety_margin=args.safety_margin,
+-        # guidance_scale=args.guidance_scale,
+-        # min_guidance_time=args.min_guidance_time,
++        guidance_scale=args.guidance_scale,
++        min_guidance_time=args.min_guidance_time,
+     )
+     
+     # Enable safety
+@@ -166,6 +178,7 @@
+ 
+ def main(args: Args) -> None:
+     policy = create_policy(args)
++    policy.set_trace_dir(args.trace_dir)
+     policy_metadata = policy.metadata
+     
+     # Enable safety guidance if requested
+--- a/src/openpi/policies/policy.py
++++ b/src/openpi/policies/policy.py
+@@ -131,7 +131,7 @@
+ #                     trace_serializable[k] = val.tolist()
+ #                 else:
+ #                     trace_serializable[k] = val
+-#             path = f"/home/will.english/Desktop/Research/VLA/openpi/data/denoising_logs/trace_{int(time_mod.time()*1000)}.json"
++#             # Legacy trace destination removed; the release uses --trace-dir.
+ #             os.makedirs(os.path.dirname(path), exist_ok=True)
+ #             with open(path, 'w') as f:
+ #                 json.dump(trace_serializable, f)
+@@ -278,7 +278,6 @@
+ from openpi_client import base_policy as _base_policy
+ import torch
+ from typing_extensions import override
+-import os
+ from openpi import transforms as _transforms
+ from openpi.models import model as _model
+ from openpi.shared import array_typing as at
+@@ -299,6 +298,7 @@
+         metadata: dict[str, Any] | None = None,
+         pytorch_device: str = "cpu",
+         is_pytorch: bool = False,
++        trace_dir: str | pathlib.Path | None = None,
+     ):
+         self._model = model
+         self._input_transform = _transforms.compose(transforms)
+@@ -307,6 +307,7 @@
+         self._metadata = metadata or {}
+         self._is_pytorch_model = is_pytorch
+         self._pytorch_device = pytorch_device
++        self.set_trace_dir(trace_dir)
+ 
+         if self._is_pytorch_model:
+             self._model = self._model.to(pytorch_device)
+@@ -318,6 +319,33 @@
+ 
+     @override
+     def infer(self, obs: dict, *, noise: np.ndarray | None = None) -> dict:
++        """Apply viewer controls for this request without changing server defaults."""
++        import dataclasses
++        import math
++
++        obs = dict(obs)
++        guide = getattr(self._model, 'safety_guide', None)
++        requested = self._is_pytorch_model and obs.get('_safety_eef_pos') is not None
++        if requested and guide is None:
++            raise ValueError('Flow guidance requested but server safety guidance is disabled')
++        original_config = guide.config if guide is not None else None
++        if requested:
++            updates = {}
++            for key, field in [('_safety_margin', 'safety_margin'),
++                               ('_safety_guidance_scale', 'guidance_scale')]:
++                if obs.get(key) is not None:
++                    value = float(obs[key])
++                    if not math.isfinite(value) or value < 0:
++                        raise ValueError(f'{key} must be finite and nonnegative')
++                    updates[field] = value
++            guide.config = dataclasses.replace(original_config, **updates)
++        try:
++            return self._infer(obs, noise=noise)
++        finally:
++            if guide is not None:
++                guide.config = original_config
++
++    def _infer(self, obs: dict, *, noise: np.ndarray | None = None) -> dict:
+         # =================================================================
+         # Extract ALL safety parameters BEFORE they leak into model input.
+         # Pop them from obs so they don't get passed through transforms.
+@@ -338,29 +366,8 @@
+         obs.pop('_safety_obs_pos', None)
+         obs.pop('_safety_obstacle_info', None)
+ 
+-        # =================================================================
+-        # Save trace from PREVIOUS call (if any)
+-        # =================================================================
+-        if hasattr(self._model, '_last_trace') and self._model._last_trace is not None:
+-            import json
+-            import time as time_mod
+-            trace_data = self._model._last_trace.to_dict()
+-            trace_serializable = {}
+-            for k, val in trace_data.items():
+-                if val is None:
+-                    trace_serializable[k] = None
+-                elif isinstance(val, list):
+-                    trace_serializable[k] = [
+-                        v.tolist() if hasattr(v, 'tolist') else v for v in val
+-                    ]
+-                elif hasattr(val, 'tolist'):
+-                    trace_serializable[k] = val.tolist()
+-                else:
+-                    trace_serializable[k] = val
+-            path = f"/home/will.english/Desktop/Research/VLA/openpi/data/denoising_logs/trace_{int(time_mod.time()*1000)}.json"
+-            os.makedirs(os.path.dirname(path), exist_ok=True)
+-            with open(path, 'w') as f:
+-                json.dump(trace_serializable, f)
++        # Trace output is handled after the current inference, never one call late.
++        if hasattr(self._model, '_last_trace'):
+             self._model._last_trace = None
+ 
+         # =================================================================
+@@ -380,6 +387,8 @@
+             sample_rng_or_pytorch_device = self._pytorch_device
+ 
+         sample_kwargs = dict(self._sample_kwargs)
++        if self._is_pytorch_model and hasattr(self._model, "safety_guide"):
++            sample_kwargs["collect_trace"] = self._trace_dir is not None
+         if noise is not None:
+             noise = (
+                 torch.from_numpy(noise).to(self._pytorch_device)
+@@ -402,9 +411,7 @@
+             if safety_obstacles is not None:
+                 sample_kwargs["obstacles"] = self._deserialize_obstacles(safety_obstacles)
+ 
+-            # Update guidance scale and safety margin on the model's config
+-            # if safety_guidance_scale is not None or safety_margin is not None:
+-            #     self._maybe_update_safety_config(safety_guidance_scale, safety_margin)
++            # Margin and strength were validated in the request-local infer wrapper.
+ 
+             # Update guidance schedule on the model's config
+             self._maybe_update_guidance_schedule(
+@@ -427,6 +434,7 @@
+             ),
+         }
+         model_time = time.monotonic() - start_time
++        self._save_current_trace()
+ 
+         if self._is_pytorch_model:
+             outputs = jax.tree.map(lambda x: np.asarray(x[0, ...].detach().cpu()), outputs)
+@@ -440,6 +448,34 @@
+     # =================================================================
+     # Helper methods
+     # =================================================================
++
++    def set_trace_dir(self, trace_dir: str | pathlib.Path | None):
++        """Opt into trace collection; relative paths resolve against server cwd."""
++        self._trace_dir = pathlib.Path(trace_dir).expanduser().resolve() if trace_dir is not None else None
++
++    def _save_current_trace(self):
++        import json
++        import uuid
++
++        trace = getattr(self._model, '_last_trace', None)
++        if trace is None:
++            return
++        try:
++            if self._trace_dir is None:
++                return
++            def encode(value):
++                if hasattr(value, 'detach'):
++                    return value.detach().cpu().tolist()
++                if hasattr(value, 'tolist'):
++                    return value.tolist()
++                raise TypeError(f'Unsupported trace value: {type(value).__name__}')
++            payload = json.dumps(trace.to_dict(), default=encode, allow_nan=False)
++            self._trace_dir.mkdir(parents=True, exist_ok=True)
++            path = self._trace_dir / f'trace_{uuid.uuid4().hex}.json'
++            with path.open('x') as stream:
++                stream.write(payload)
++        finally:
++            self._model._last_trace = None
+ 
+     def _deserialize_obstacles(self, obs_list: list):
+         """Reconstruct ObstacleGeometry list from serialized data."""
+--- a/src/openpi/models_pytorch/pi0_pytorch.py
++++ b/src/openpi/models_pytorch/pi0_pytorch.py
+@@ -655,6 +655,7 @@
+ @dataclass
+ class SafetyConfig:
+     """Configuration for safety-guided flow matching with ellipsoidal EEF."""
++    guidance_scale: float = 1.0  # Multiplier; 1 preserves the minimum-norm correction.
+     safety_margin: float = 0.01
+     min_guidance_time: float = 0.0
+     dt: float = 0.01
+@@ -666,6 +667,13 @@
+     bell_width: float = 0.20
+     bell_min_tau: float = 0.05
+     bell_max_tau: float = 0.85
++
++    def __post_init__(self):
++        for field in ('safety_margin', 'guidance_scale'):
++            value = float(getattr(self, field))
++            if not math.isfinite(value) or value < 0:
++                raise ValueError(f'{field} must be finite and nonnegative')
++            setattr(self, field, value)
+ 
+ @dataclass
+ class ObstacleGeometry:
+@@ -889,7 +897,7 @@
+         import torch
+ 
+         # Apply time-dependent schedule
+-        time_scale = self._guidance_time_scale(flow_time)
++        time_scale = self._guidance_time_scale(flow_time) * self.config.guidance_scale
+         if time_scale < 1e-8:
+             return torch.zeros_like(x_t)
+ 
+@@ -1453,7 +1461,7 @@
+                           if obs_pos_t.dim() > 1 else obs_pos_t.detach().cpu().numpy())
+                 corr = self.safety_guide._compute_cbf_qp_guidance(actions_np, eef_np, obstacles)
+                 if corr is not None:
+-                    posthoc_correction[b] = torch.from_numpy(corr).to(device, dtype=x_t_posthoc.dtype)
++                    posthoc_correction[b] = torch.from_numpy(corr).to(device, dtype=x_t_posthoc.dtype) * self.safety_guide.config.guidance_scale
+ 
+             x_t_posthoc = x_t_posthoc + posthoc_correction
+             trace.posthoc_correction = posthoc_correction.clone()
+@@ -1463,6 +1471,9 @@
+             trace.posthoc_x_t = trace.unguided_x_t[:-1] + [x_t_posthoc.clone()]
+ 
+             self._last_trace = trace
++            # Tracing must not change the action selected by the requested schedule.
++            if self.safety_guide.config.guidance_schedule == 'posthoc':
++                return x_t_posthoc
+             return x_t_guided
+         # --- Standard single pass ---
+         x_t = noise
+@@ -1497,7 +1508,7 @@
+                 
+                 corr = self.safety_guide._compute_cbf_qp_guidance(actions_np, eef_np, obstacles)
+                 if corr is not None:
+-                    posthoc_correction[b] = torch.from_numpy(corr).to(device, dtype=x_t.dtype)
++                    posthoc_correction[b] = torch.from_numpy(corr).to(device, dtype=x_t.dtype) * self.safety_guide.config.guidance_scale
+             
+             x_t = x_t + posthoc_correction
+ 

@@ -451,7 +451,7 @@ class LiveDisplayManager:
         initial_task_suite: str = None,
         initial_task_id: int = 0,
         initial_safety_margin: float = 0.01,
-        initial_guidance_scale: float = 8.5,
+        initial_guidance_scale: float = 1.0,
     ):
         self.window_name = window_name
         self.scale = scale
@@ -1969,7 +1969,8 @@ class Args:
 
     safety_filter: Literal["none", "cbf", "flow", "flow+cbf"] = "none"
     safety_margin: float = 0.01
-    guidance_scale: float = 8.5
+    guidance_scale: float = 1.0
+    """Correction multiplier: 1.0 preserves solver output; other values are experimental."""
     obstacle_ellipsoid_scale: float = 1.0
     """Scale factor on the estimated obstacle ellipsoid semi-axes (<1 shrinks its volume)."""
     eef_ellipsoid_scale: float = 1.0
